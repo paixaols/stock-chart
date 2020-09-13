@@ -52,7 +52,7 @@ class Gerenciador_de_Ativos(tk.Frame):
     
     def listar_ativos_cadastrados(self):
         for a in sorted(list(self.contr.ativos.keys())):
-            self.lbox.insert('end', '{}: {}'.format(a, self.contr.ativos[a]['d']))
+            self.lbox.insert('end', '{}: {}'.format(a, self.contr.ativos[a]['descr']))
     
     def check_entry_info(self):
         if self.txtvar_entry_ticker.get() == '':
@@ -97,8 +97,9 @@ class Gerenciador_de_Ativos(tk.Frame):
         return True
     
     def atualizar_ativos(self, ativo, descricao, mercado):
+        '''Atualiza dicionário de ativos atualmente na memória.'''
         self.lbox.insert(0, '{}: {}'.format(ativo, descricao))
-        self.contr.ativos[ativo] = {'d':descricao, 'm':mercado}
+        self.contr.ativos[ativo] = {'descr':descricao, 'mercado':mercado}
         
         self.txtvar_entry_ticker.set('')
         self.txtvar_entry_descr.set('')
@@ -106,10 +107,11 @@ class Gerenciador_de_Ativos(tk.Frame):
         self.e1.focus_set()
     
     def salvar_ativos(self):
+        '''Exporta dicionário de ativos cadastrados.'''
         with open(arq_ativos, 'w', encoding = 'utf8') as f:
             for a in sorted(list(self.contr.ativos.keys())):
-                d = self.contr.ativos[a]['d']
-                m = self.contr.ativos[a]['m']
+                d = self.contr.ativos[a]['descr']
+                m = self.contr.ativos[a]['mercado']
                 f.write('{}~{}~{}\n'.format(a, d, m))
 
 if __name__ == '__main__':
@@ -123,7 +125,7 @@ if __name__ == '__main__':
                 if len(line) == 0:
                     continue
                 a, d, m = line.split('~')
-                root.ativos[a] = {'d':d, 'm':m}
+                root.ativos[a] = {'descr':d, 'mercado':m}
     except:
         root.ativos = {}
     

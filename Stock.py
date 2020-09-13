@@ -4,6 +4,7 @@ import os
 import tkinter as tk
 import pandas as pd
 
+#from datetime import datetime
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 
@@ -13,7 +14,8 @@ style.use('ggplot')
 from gerenciador import Gerenciador_de_Ativos
 import recursos as rec
 
-#lista_ativos = [ os.path.splitext(f)[0] for f in os.listdir(rec.historical_data_folder) if os.path.isfile(os.path.join(rec.historical_data_folder, f)) ]
+# TODO: gerenciamento de carteira (usar nested pie).
+# TODO: janelas de visialização (3m, 6m, 1a, 5a)
 
 class Application(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -31,22 +33,11 @@ class Application(tk.Tk):
         self.init_frame_control()
         self.init_frame_chart()
         
-        self.abrir_ativos_cadastrados()
+        self.importar_ativos_cadastrados()
         self.update()
         self.entry_ticker.focus_set()
-    
-    def abrir_ativos_cadastrados(self):
-        try:
-            with open(rec.arq_ativos, 'r', encoding = 'utf8') as f:
-                txt = f.read()
-                self.ativos = {}
-                for line in txt.split('\n'):
-                    if len(line) == 0:
-                        continue
-                    a, d, m = line.split('~')
-                    self.ativos[a] = {'d':d, 'm':m}
-        except:
-            self.ativos = {}
+        
+        self.fechamento = pd.to_datetime(rec.horario_de_fechamento_pregao).time()
     
     def init_frame_control(self):
         tk.Label(self.frame_control, text = rec.label_ticker).pack()
@@ -69,10 +60,31 @@ class Application(tk.Tk):
         self.canvas.get_tk_widget().pack(fill = 'both', expand = True)
         
         toolbar_miniframe = tk.Frame(self.frame_chart)
-        toolbar_miniframe.pack(side = 'left')
-        NavigationToolbar2Tk(self.canvas, toolbar_miniframe).pack()
+        toolbar_miniframe.pack(side = 'left', padx = 10)
+        
+        tk.Button(toolbar_miniframe, text = '1M').pack(side = 'left', padx = 5)
+        tk.Button(toolbar_miniframe, text = '3M').pack(side = 'left', padx = 5)
+        tk.Button(toolbar_miniframe, text = '6M').pack(side = 'left', padx = 5)
+        tk.Button(toolbar_miniframe, text = '1A').pack(side = 'left', padx = 5)
+        tk.Button(toolbar_miniframe, text = '5A').pack(side = 'left', padx = 5)
+        tk.Button(toolbar_miniframe, text = 'Max').pack(side = 'left', padx = 5)
+        
+        NavigationToolbar2Tk(self.canvas, toolbar_miniframe).pack(side = 'right')
         
         # TODO: plot cursor lines.
+    
+    def importar_ativos_cadastrados(self):
+        try:
+            with open(rec.arq_ativos, 'r', encoding = 'utf8') as f:
+                txt = f.read()
+                self.ativos = {}
+                for line in txt.split('\n'):
+                    if len(line) == 0:
+                        continue
+                    a, d, m = line.split('~')
+                    self.ativos[a] = {'descr':d, 'mercado':m}
+        except:
+            self.ativos = {}
     
     def abrir_gerenciador_de_ativos(self):
         top = tk.Toplevel()
@@ -86,24 +98,103 @@ class Application(tk.Tk):
     
     def entry_return_key_callback(self, event):
         self.msg.set('')
+        
         ticker = self.txtvar_entry_ticker.get().upper()
         if ticker in self.ativos:
             fname = os.path.join(rec.historical_data_folder, ticker+'.csv')
             df = pd.read_csv(fname, parse_dates = ['Date'])
-            self.plot(ticker, df)
+            if self.atualizar_cotacao(df):
+                self.msg.set(rec.msg_atualizando_cotacao)
+                df_novo = self.baixar_dados_historicos(ticker)
+                if df_novo is None:
+                    self.msg.set(rec.msg_erro_download)
+                else:
+                    self.msg.set(rec.msg_cotacao_atualizada)
+                    
+                    
+                    
+                    
+                    ultima_data = df_novo['Date'].iloc[-1]
+                    df.drop(df[df['Date'] >= ultima_data].index, inplace = True)
+                    df = df_novo.append(df)
+                    df.reset_index(drop = True, inplace = True)
+                    df.to_csv(os.path.join(rec.historical_data_folder, ticker+'.csv'), index = False)
+                    
+                    
+                    
+                    self.plot(ticker, df)
+            else:
+                self.plot(ticker, df)
         else:
             self.msg.set(rec.msg_ativo_nao_cadastrado)
+        
         self.entry_ticker.selection_range(0, 'end')
+    
+    def baixar_dados_historicos(self, ticker):
+        '''Baixa os dados históricos de um ativo do yahoo finance. Retorna um 
+        dataframe com os dados ou None caso ocorra erro no download.'''
+        mercado = self.ativos[ticker]['mercado']
+        if mercado == 'Brasil':
+            url = 'https://finance.yahoo.com/quote/{}.SA/history?p={}.SA'.format(ticker, ticker)
+        else:
+            url = 'https://finance.yahoo.com/quote/{}/history?p={}'.format(ticker, ticker)
+        try:
+            lista_dfs = pd.read_html(url)
+        except:
+            return None
+        df = lista_dfs[0].copy()
+        if 'Close*' in df.columns:# Pagamento de dividendos.
+            df.drop_duplicates(subset = 'Date', inplace = True)
+            df.reset_index(drop = True, inplace = True)
+            df.rename(columns = {'Close*': 'Close', 'Adj Close**': 'Adj Close'}, inplace = True)
+            df.drop(df.index[-1], inplace = True)
+        df['Date'] = df['Date'].apply(lambda d: pd.to_datetime(d))
+        df['Close'] = df['Close'].apply(lambda n: float(n))
+        
+        return df
+    
+    def atualizar_cotacao(self, df):
+        '''Verificar necessidade de atualizar cotação do ativo.'''
+        data_ultima_cotacao = df['Date'][0]
+        
+        agora = pd.to_datetime('today')# datetime
+        hora = agora.time()# time
+        hoje = agora.date()# date
+        
+        dia_da_semana = hoje.weekday()
+        
+        if dia_da_semana == 5:# Sábado
+            ultimo_pregao_fechado = hoje-pd.Timedelta('1 days')
+        elif dia_da_semana == 6:# Domingo
+            ultimo_pregao_fechado = hoje-pd.Timedelta('2 days')
+        else:
+            if hora > self.fechamento:
+                ultimo_pregao_fechado = hoje
+            else:
+                if dia_da_semana == 0:# Segunda
+                    ultimo_pregao_fechado = hoje-pd.Timedelta('3 days')
+                else:
+                    ultimo_pregao_fechado = hoje-pd.Timedelta('1 days')
+        
+        if data_ultima_cotacao == ultimo_pregao_fechado:
+            return False# Não atualizar.
+        else:
+            return True# Atualizar dados.
     
     def plot(self, ticker, dados):
         self.ax.clear()
-        self.ax.set_title('{}: {}'.format(ticker, self.ativos[ticker]['d']))
-        if self.ativos[ticker]['m'] == 'Brasil':
+        self.ax.set_title('{}: {}'.format(ticker, self.ativos[ticker]['descr']))
+        if self.ativos[ticker]['mercado'] == 'Brasil':
             self.ax.set_ylabel('BRL')
         else:
             self.ax.set_ylabel('USD')
         dados.plot(ax = self.ax, x = 'Date', y = 'Close', logy = True, legend = False)
         self.canvas.draw()
+
+if not os.path.isdir(rec.historical_data_folder):
+    # Importante garantir que a pasta existe mesmo vazia, ou o pd.to_csv 
+    # não funciona.
+    os.makedirs(rec.historical_data_folder)
 
 app = Application()
 app.state('zoomed')
