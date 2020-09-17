@@ -185,9 +185,9 @@ class Application(tk.Tk):
         self.ax.clear()
         self.ax.set_title('{}: {}'.format(ticker, self.ativos[ticker]['descr']))
         if self.ativos[ticker]['mercado'] == 'Brasil':
-            self.ax.set_ylabel('BRL')
+            self.ax.set_ylabel(rec.moeda_brasil)
         else:
-            self.ax.set_ylabel('USD')
+            self.ax.set_ylabel(rec.moeda_eua)
         dados.plot(ax = self.ax, x = 'Date', y = 'Close', logy = True, legend = False)
         self.canvas.draw()
 

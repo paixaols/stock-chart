@@ -21,6 +21,8 @@ class Gerenciador_de_Ativos(tk.Frame):
         
         self.listar_ativos_cadastrados()
         self.e1.focus_set()
+        
+        # TODO: Exibir número de ativos cadastrados.
     
     def init_window(self):
         tk.Label(self.container, text = 'Código').pack(pady = 5)
@@ -75,6 +77,7 @@ class Gerenciador_de_Ativos(tk.Frame):
                     tk.messagebox.showerror('Erro de download', 'Não foi possível baixar dados, tente mais tarde.')
     
     def baixar_dados_historicos(self, ticker, mercado):
+        # TODO: mover download exclusivamente no programa principal
         self.msg.set('Baixando dados de '+ticker+'.')
         if mercado == 'Brasil':
             url = 'https://finance.yahoo.com/quote/{}.SA/history?p={}.SA'.format(ticker, ticker)
@@ -91,6 +94,7 @@ class Gerenciador_de_Ativos(tk.Frame):
             df.rename(columns = {'Close*': 'Close', 'Adj Close**': 'Adj Close'}, inplace = True)
             df.drop(df.index[-1], inplace = True)
         df['Date'] = df['Date'].apply(lambda d: datetime.strptime(d, '%b %d, %Y'))
+        # TODO: excluir períodos sem dados antes do cast abaixo (caso de XPLG11)
         df['Close'] = df['Close'].apply(lambda n: float(n))
         df.to_csv(os.path.join(historical_data_folder, ticker+'.csv'), index = False)
         self.msg.set('Dados de {} baixados.'.format(ticker))
