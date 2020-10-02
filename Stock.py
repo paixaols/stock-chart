@@ -15,7 +15,6 @@ from gerenciador import Gerenciador_de_Ativos
 import recursos as rec
 
 # TODO: gerenciamento de carteira (usar nested pie).
-# TODO: janelas de visialização (3m, 6m, 1a, 5a)
 
 class Application(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -47,6 +46,17 @@ class Application(tk.Tk):
         self.entry_ticker.bind('<Return>', self.entry_return_key_callback)
         
         tk.Button(self.frame_control, text = 'Ativos', command = self.abrir_gerenciador_de_ativos).pack(pady = 30)
+        
+        grupo_config_plot = tk.LabelFrame(self.frame_control, text = 'Gráfico')
+        grupo_config_plot.pack(fill = 'both', expand = False, padx = 5)
+        self.janela_grafica = tk.StringVar()
+        self.janela_grafica.set('180 day')
+        tk.Radiobutton(grupo_config_plot, text = '1 mês', variable = self.janela_grafica, value = '30 day').pack(anchor = 'w')
+        tk.Radiobutton(grupo_config_plot, text = '3 meses', variable = self.janela_grafica, value = '90 day').pack(anchor = 'w')
+        tk.Radiobutton(grupo_config_plot, text = '6 meses', variable = self.janela_grafica, value = '180 day').pack(anchor = 'w')
+        tk.Radiobutton(grupo_config_plot, text = '1 ano', variable = self.janela_grafica, value = '365 day').pack(anchor = 'w')
+        tk.Radiobutton(grupo_config_plot, text = '5 anos', variable = self.janela_grafica, value = '1825 day').pack(anchor = 'w')
+        tk.Radiobutton(grupo_config_plot, text = 'Max.', variable = self.janela_grafica, value = 'max').pack(anchor = 'w')
     
     def init_frame_chart(self):
         self.msg = tk.StringVar()
@@ -62,16 +72,12 @@ class Application(tk.Tk):
         toolbar_miniframe = tk.Frame(self.frame_chart)
         toolbar_miniframe.pack(side = 'left', padx = 10)
         
-        tk.Button(toolbar_miniframe, text = '1M').pack(side = 'left', padx = 5)
-        tk.Button(toolbar_miniframe, text = '3M').pack(side = 'left', padx = 5)
-        tk.Button(toolbar_miniframe, text = '6M').pack(side = 'left', padx = 5)
-        tk.Button(toolbar_miniframe, text = '1A').pack(side = 'left', padx = 5)
-        tk.Button(toolbar_miniframe, text = '5A').pack(side = 'left', padx = 5)
-        tk.Button(toolbar_miniframe, text = 'Max').pack(side = 'left', padx = 5)
-        
         NavigationToolbar2Tk(self.canvas, toolbar_miniframe).pack(side = 'right')
         
         # TODO: plot cursor lines.
+    
+    def set_window(self, janela):
+        self.janela_grafica = janela
     
     def importar_ativos_cadastrados(self):
         try:
@@ -181,7 +187,16 @@ class Application(tk.Tk):
         else:
             return True# Atualizar dados.
     
-    def plot(self, ticker, dados):
+    def plot(self, ticker, df):
+        def aplicar_janela(df):
+            if self.janela_grafica.get() == 'max':
+                return df
+            hoje = pd.to_datetime('today').normalize()
+            ultima_data = hoje-pd.Timedelta(self.janela_grafica.get())
+            return df[df['Date'] > ultima_data]
+        
+        dados = aplicar_janela(df)
+        # TODO: exibir na tela valores OHLC no período
         self.ax.clear()
         self.ax.set_title('{}: {}'.format(ticker, self.ativos[ticker]['descr']))
         if self.ativos[ticker]['mercado'] == 'Brasil':
