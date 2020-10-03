@@ -57,6 +57,11 @@ class Application(tk.Tk):
         tk.Radiobutton(grupo_config_plot, text = '1 ano', variable = self.janela_grafica, value = '365 day').pack(anchor = 'w')
         tk.Radiobutton(grupo_config_plot, text = '5 anos', variable = self.janela_grafica, value = '1825 day').pack(anchor = 'w')
         tk.Radiobutton(grupo_config_plot, text = 'Max.', variable = self.janela_grafica, value = 'max').pack(anchor = 'w')
+        
+        tk.Button(self.frame_control, text = 'Importar Tryd', command = self.import_externo).pack(pady = 30)
+    
+    def import_externo(self):
+        pass
     
     def init_frame_chart(self):
         self.msg = tk.StringVar()
@@ -111,22 +116,18 @@ class Application(tk.Tk):
             df = pd.read_csv(fname, parse_dates = ['Date'])
             if self.atualizar_cotacao(df):
                 self.msg.set(rec.msg_atualizando_cotacao)
-                df_novo = self.baixar_dados_historicos(ticker)
+                mercado = self.ativos[ticker]['mercado']
+                df_novo = self.baixar_dados_historicos(ticker, mercado)
                 if df_novo is None:
                     self.msg.set(rec.msg_erro_download)
                 else:
                     self.msg.set(rec.msg_cotacao_atualizada)
-                    
-                    
-                    
                     
                     ultima_data = df_novo['Date'].iloc[-1]
                     df.drop(df[df['Date'] >= ultima_data].index, inplace = True)
                     df = df_novo.append(df)
                     df.reset_index(drop = True, inplace = True)
                     df.to_csv(os.path.join(rec.historical_data_folder, ticker+'.csv'), index = False)
-                    
-                    
                     
                     self.plot(ticker, df)
             else:
@@ -136,10 +137,9 @@ class Application(tk.Tk):
         
         self.entry_ticker.selection_range(0, 'end')
     
-    def baixar_dados_historicos(self, ticker):
+    def baixar_dados_historicos(self, ticker, mercado):
         '''Baixa os dados históricos de um ativo do yahoo finance. Retorna um 
         dataframe com os dados ou None caso ocorra erro no download.'''
-        mercado = self.ativos[ticker]['mercado']
         if mercado == 'Brasil':
             url = 'https://finance.yahoo.com/quote/{}.SA/history?p={}.SA'.format(ticker, ticker)
         else:
@@ -149,14 +149,19 @@ class Application(tk.Tk):
         except:
             return None
         df = lista_dfs[0].copy()
-        if 'Close*' in df.columns:# Pagamento de dividendos.
+        if 'Close*' in df.columns:# Dividendos, desdobramentos e grupamentos.
             df.drop_duplicates(subset = 'Date', inplace = True)
-            df.reset_index(drop = True, inplace = True)
             df.rename(columns = {'Close*': 'Close', 'Adj Close**': 'Adj Close'}, inplace = True)
             df.drop(df.index[-1], inplace = True)
+        
+        # Data é baixada no formato 'Oct 03, 2020' ('%b %d, %Y'), converter para datetime.
         df['Date'] = df['Date'].apply(lambda d: pd.to_datetime(d))
+        
+        # O df pode ter dados faltando, a conversão pra float vai falhar.
+        df = df[df['Adj Close'] != '-']
         df['Close'] = df['Close'].apply(lambda n: float(n))
         
+        df.reset_index(drop = True, inplace = True)
         return df
     
     def atualizar_cotacao(self, df):

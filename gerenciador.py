@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-from datetime import datetime
+#from datetime import datetime
 
 import os
 
-import pandas as pd
+#import pandas as pd
 import tkinter as tk
 
 from recursos import arq_ativos, historical_data_folder
@@ -70,35 +70,14 @@ class Gerenciador_de_Ativos(tk.Frame):
             elif ativo in self.contr.ativos:
                 tk.messagebox.showwarning('Ops', 'Ativo já cadastrado.')
             else:
-                if self.baixar_dados_historicos(ativo, mercado):
+                df = self.contr.baixar_dados_historicos(ativo, mercado)
+                if df is None:
+                    tk.messagebox.showerror('Erro de download', 'Não foi possível baixar dados, tente mais tarde.')
+                else:
+                    self.msg.set('Dados de {} baixados.'.format(ativo))
                     self.atualizar_ativos(ativo, descricao, mercado)
                     self.salvar_ativos()
-                else:
-                    tk.messagebox.showerror('Erro de download', 'Não foi possível baixar dados, tente mais tarde.')
-    
-    def baixar_dados_historicos(self, ticker, mercado):
-        # TODO: mover download exclusivamente no programa principal
-        self.msg.set('Baixando dados de '+ticker+'.')
-        if mercado == 'Brasil':
-            url = 'https://finance.yahoo.com/quote/{}.SA/history?p={}.SA'.format(ticker, ticker)
-        else:
-            url = 'https://finance.yahoo.com/quote/{}/history?p={}'.format(ticker, ticker)
-        try:
-            lista_dfs = pd.read_html(url)
-        except:
-            return False
-        df = lista_dfs[0].copy()
-        if 'Close*' in df.columns:# Pagamento de dividendos.
-            df.drop_duplicates(subset = 'Date', inplace = True)
-            df.reset_index(drop = True, inplace = True)
-            df.rename(columns = {'Close*': 'Close', 'Adj Close**': 'Adj Close'}, inplace = True)
-            df.drop(df.index[-1], inplace = True)
-        df['Date'] = df['Date'].apply(lambda d: datetime.strptime(d, '%b %d, %Y'))
-        # TODO: excluir períodos sem dados antes do cast abaixo (caso de XPLG11)
-        df['Close'] = df['Close'].apply(lambda n: float(n))
-        df.to_csv(os.path.join(historical_data_folder, ticker+'.csv'), index = False)
-        self.msg.set('Dados de {} baixados.'.format(ticker))
-        return True
+                    df.to_csv(os.path.join(historical_data_folder, ativo+'.csv'), index = False)
     
     def atualizar_ativos(self, ativo, descricao, mercado):
         '''Atualiza dicionário de ativos atualmente na memória.'''
