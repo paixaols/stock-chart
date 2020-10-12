@@ -47,18 +47,25 @@ class Application(tk.Tk):
         
         tk.Button(self.frame_control, text = 'Ativos', command = self.abrir_gerenciador_de_ativos).pack(pady = 30)
         
-        grupo_config_plot = tk.LabelFrame(self.frame_control, text = 'Gráfico')
-        grupo_config_plot.pack(fill = 'both', expand = False, padx = 5)
+        grupo_config_intervalo = tk.LabelFrame(self.frame_control, text = 'Período')
+        grupo_config_intervalo.pack(fill = 'both', expand = False, padx = 5)
         self.janela_grafica = tk.StringVar()
         self.janela_grafica.set('180 day')
-        tk.Radiobutton(grupo_config_plot, text = '1 mês', variable = self.janela_grafica, value = '30 day').pack(anchor = 'w')
-        tk.Radiobutton(grupo_config_plot, text = '3 meses', variable = self.janela_grafica, value = '90 day').pack(anchor = 'w')
-        tk.Radiobutton(grupo_config_plot, text = '6 meses', variable = self.janela_grafica, value = '180 day').pack(anchor = 'w')
-        tk.Radiobutton(grupo_config_plot, text = '1 ano', variable = self.janela_grafica, value = '365 day').pack(anchor = 'w')
-        tk.Radiobutton(grupo_config_plot, text = '5 anos', variable = self.janela_grafica, value = '1825 day').pack(anchor = 'w')
-        tk.Radiobutton(grupo_config_plot, text = 'Max.', variable = self.janela_grafica, value = 'max').pack(anchor = 'w')
+        tk.Radiobutton(grupo_config_intervalo, text = '1 mês', variable = self.janela_grafica, value = '30 day').pack(anchor = 'w')
+        tk.Radiobutton(grupo_config_intervalo, text = '3 meses', variable = self.janela_grafica, value = '90 day').pack(anchor = 'w')
+        tk.Radiobutton(grupo_config_intervalo, text = '6 meses', variable = self.janela_grafica, value = '180 day').pack(anchor = 'w')
+        tk.Radiobutton(grupo_config_intervalo, text = '1 ano', variable = self.janela_grafica, value = '365 day').pack(anchor = 'w')
+        tk.Radiobutton(grupo_config_intervalo, text = '5 anos', variable = self.janela_grafica, value = '1825 day').pack(anchor = 'w')
+        tk.Radiobutton(grupo_config_intervalo, text = 'Max.', variable = self.janela_grafica, value = 'max').pack(anchor = 'w')
         
-        tk.Button(self.frame_control, text = 'Importar Tryd', command = self.import_externo).pack(pady = 30)
+        grupo_config_plot = tk.LabelFrame(self.frame_control, text = 'Gráfico')
+        grupo_config_plot.pack(fill = 'both', expand = False, padx = 5)
+        self.tipo_grafico = tk.StringVar()
+        self.tipo_grafico.set('linha')
+        tk.Radiobutton(grupo_config_plot, text = 'Candlestick', variable = self.tipo_grafico, value = 'candlestick').pack(anchor = 'w')
+        tk.Radiobutton(grupo_config_plot, text = 'Linha', variable = self.tipo_grafico, value = 'linha').pack(anchor = 'w')
+        
+#        tk.Button(self.frame_control, text = 'Importar Tryd', command = self.import_externo).pack(pady = 30)
     
     def import_externo(self):
         pass
@@ -193,6 +200,16 @@ class Application(tk.Tk):
             return True# Atualizar dados.
     
     def plot(self, ticker, df):
+        import matplotlib.dates as mdates
+        from mplfinance.original_flavor import candlestick_ohlc
+        
+        def plot_candlestick(df, ax, fmt="%Y-%m-%d"):
+            df['Date'] = df['Date'].apply(mdates.date2num)
+            ax.xaxis_date()
+            ax.xaxis.set_major_formatter(mdates.DateFormatter(fmt))
+#            plt.xticks(rotation=45)
+            candlestick_ohlc(ax, df.values, width=.6, colorup = 'b')
+        
         def aplicar_janela(df):
             if self.janela_grafica.get() == 'max':
                 return df
@@ -208,7 +225,10 @@ class Application(tk.Tk):
             self.ax.set_ylabel(rec.moeda_brasil)
         else:
             self.ax.set_ylabel(rec.moeda_eua)
-        dados.plot(ax = self.ax, x = 'Date', y = 'Close', logy = True, legend = False)
+        if self.tipo_grafico.get() == 'linha':
+            dados.plot(ax = self.ax, x = 'Date', y = 'Close', logy = True, legend = False)
+        else:
+            plot_candlestick(dados, ax = self.ax)
         self.canvas.draw()
 
 if not os.path.isdir(rec.historical_data_folder):
