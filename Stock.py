@@ -229,6 +229,8 @@ class Application(tk.Tk):
             dados.plot(ax = self.ax, x = 'Date', y = 'Close', logy = True, legend = False)
         else:
             plot_candlestick(dados, ax = self.ax)
+        last_price = dados['Close'].iloc[0]
+        self.ax.axhline(last_price, ls = '--', alpha = 0.5)
         self.canvas.draw()
 
 if not os.path.isdir(rec.historical_data_folder):
