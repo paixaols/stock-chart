@@ -2,14 +2,16 @@
 import os
 
 import tkinter as tk
-import pandas as pd
 
-#from datetime import datetime
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from matplotlib.figure import Figure
+import pandas as pd
 
 from matplotlib import style
 style.use('ggplot')
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.figure import Figure
+import matplotlib.dates as mdates
+
+from mplfinance.original_flavor import candlestick_ohlc
 
 from gerenciador import Gerenciador_de_Ativos
 import recursos as rec
@@ -61,7 +63,7 @@ class Application(tk.Tk):
         grupo_config_plot = tk.LabelFrame(self.frame_control, text = 'Gráfico')
         grupo_config_plot.pack(fill = 'both', expand = False, padx = 5)
         self.tipo_grafico = tk.StringVar()
-        self.tipo_grafico.set('linha')
+        self.tipo_grafico.set('candlestick')
         tk.Radiobutton(grupo_config_plot, text = 'Candlestick', variable = self.tipo_grafico, value = 'candlestick').pack(anchor = 'w')
         tk.Radiobutton(grupo_config_plot, text = 'Linha', variable = self.tipo_grafico, value = 'linha').pack(anchor = 'w')
         
@@ -162,11 +164,15 @@ class Application(tk.Tk):
             df.drop(df.index[-1], inplace = True)
         
         # Data é baixada no formato 'Oct 03, 2020' ('%b %d, %Y'), converter para datetime.
-        df['Date'] = df['Date'].apply(lambda d: pd.to_datetime(d))
+#        df['Date'] = df['Date'].apply(lambda d: pd.to_datetime(d))
+        df['Date'] = df['Date'].apply(pd.to_datetime)
         
         # O df pode ter dados faltando, a conversão pra float vai falhar.
         df = df[df['Adj Close'] != '-']
-        df['Close'] = df['Close'].apply(lambda n: float(n))
+        df['Open'] = df['Open'].apply(float)
+        df['High'] = df['High'].apply(float)
+        df['Low'] = df['Low'].apply(float)
+        df['Close'] = df['Close'].apply(float)
         
         df.reset_index(drop = True, inplace = True)
         return df
@@ -200,11 +206,9 @@ class Application(tk.Tk):
             return True# Atualizar dados.
     
     def plot(self, ticker, df):
-        import matplotlib.dates as mdates
-        from mplfinance.original_flavor import candlestick_ohlc
-        
-        def plot_candlestick(df, ax, fmt="%Y-%m-%d"):
-            df['Date'] = df['Date'].apply(mdates.date2num)
+        def plot_candlestick(dfo, ax, fmt="%Y-%m-%d"):
+            df = dfo.copy()
+            df.loc[:,'Date'] = dfo['Date'].apply(mdates.date2num)
             ax.xaxis_date()
             ax.xaxis.set_major_formatter(mdates.DateFormatter(fmt))
 #            plt.xticks(rotation=45)
