@@ -17,6 +17,7 @@ from gerenciador import Gerenciador_de_Ativos
 import recursos as rec
 
 # TODO: gerenciamento de carteira (usar nested pie).
+# TODO: deslocar datas para meio dia, deve melhorar identificação dos candles.
 
 class Application(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -66,11 +67,6 @@ class Application(tk.Tk):
         self.tipo_grafico.set('candlestick')
         tk.Radiobutton(grupo_config_plot, text = 'Candlestick', variable = self.tipo_grafico, value = 'candlestick').pack(anchor = 'w')
         tk.Radiobutton(grupo_config_plot, text = 'Linha', variable = self.tipo_grafico, value = 'linha').pack(anchor = 'w')
-        
-#        tk.Button(self.frame_control, text = 'Importar Tryd', command = self.import_externo).pack(pady = 30)
-    
-    def import_externo(self):
-        pass
     
     def init_frame_chart(self):
         self.msg = tk.StringVar()
@@ -121,8 +117,9 @@ class Application(tk.Tk):
         
         ticker = self.txtvar_entry_ticker.get().upper()
         if ticker in self.ativos:
-            fname = os.path.join(rec.historical_data_folder, ticker+'.csv')
-            df = pd.read_csv(fname, parse_dates = ['Date'])
+            arq = os.path.join(rec.historical_data_folder, ticker+'.csv')
+            # TODO: atualizar cotação baseado na data de modificação do arquivo.
+            df = pd.read_csv(arq, parse_dates = ['Date'])
             if self.atualizar_cotacao(df):
                 self.msg.set(rec.msg_atualizando_cotacao)
                 mercado = self.ativos[ticker]['mercado']
@@ -164,7 +161,6 @@ class Application(tk.Tk):
             df.drop(df.index[-1], inplace = True)
         
         # Data é baixada no formato 'Oct 03, 2020' ('%b %d, %Y'), converter para datetime.
-#        df['Date'] = df['Date'].apply(lambda d: pd.to_datetime(d))
         df['Date'] = df['Date'].apply(pd.to_datetime)
         
         # O df pode ter dados faltando, a conversão pra float vai falhar.
@@ -206,13 +202,13 @@ class Application(tk.Tk):
             return True# Atualizar dados.
     
     def plot(self, ticker, df):
-        def plot_candlestick(dfo, ax, fmt="%Y-%m-%d"):
-            df = dfo.copy()
-            df.loc[:,'Date'] = dfo['Date'].apply(mdates.date2num)
+        def plot_candlestick(df, ax, fmt="%Y-%m-%d"):
+            ohlc = df.copy()# Evita SettingWithCopyWarning.
+            ohlc.loc[:,'Date'] = df['Date'].apply(mdates.date2num)
             ax.xaxis_date()
             ax.xaxis.set_major_formatter(mdates.DateFormatter(fmt))
 #            plt.xticks(rotation=45)
-            candlestick_ohlc(ax, df.values, width=.6, colorup = 'b')
+            candlestick_ohlc(ax, ohlc.values, width=.6, colorup = 'b')
         
         def aplicar_janela(df):
             if self.janela_grafica.get() == 'max':
@@ -234,7 +230,17 @@ class Application(tk.Tk):
         else:
             plot_candlestick(dados, ax = self.ax)
         last_price = dados['Close'].iloc[0]
+        
+        # Destacar último preço.
         self.ax.axhline(last_price, ls = '--', alpha = 0.5)
+        bbox_prop = dict(boxstyle = 'round', fc = 'w', ec = 'k', lw = 1)
+        font_prop = {'size': 12}
+        self.ax.text(df['Date'].iloc[0]+pd.Timedelta('3 days'), 
+                     df['Close'].iloc[0], 
+                     '{:.2f}'.format(df['Close'].iloc[0]), 
+                     bbox = bbox_prop, 
+                     fontdict = font_prop)
+        
         self.canvas.draw()
 
 if not os.path.isdir(rec.historical_data_folder):
