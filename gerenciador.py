@@ -6,7 +6,7 @@ import os
 #import pandas as pd
 import tkinter as tk
 
-from recursos import arq_ativos, historical_data_folder
+from recursos import arq_ativos, folder_historical_data
 
 class Gerenciador_de_Ativos(tk.Frame):
     def __init__(self, parent, controller):
@@ -48,6 +48,7 @@ class Gerenciador_de_Ativos(tk.Frame):
         
         self.msg = tk.StringVar()
         tk.Label(self.container, textvar = self.msg).pack()
+        self.msg.set('{} ativos encontrados.'.format(len(self.contr.ativos.keys())))
         
         self.lbox = tk.Listbox(self.container, width = 30, height = 13)
         self.lbox.pack(padx = 5, pady = 5)
@@ -70,14 +71,14 @@ class Gerenciador_de_Ativos(tk.Frame):
             elif ativo in self.contr.ativos:
                 tk.messagebox.showwarning('Ops', 'Ativo já cadastrado.')
             else:
-                df = self.contr.baixar_dados_historicos(ativo, mercado)
+                df = self.contr.baixar_dados_historicos(ativo, classe = 'stock', mercado = mercado)
                 if df is None:
                     tk.messagebox.showerror('Erro de download', 'Não foi possível baixar dados, tente mais tarde.')
                 else:
                     self.msg.set('Dados de {} baixados.'.format(ativo))
                     self.atualizar_ativos(ativo, descricao, mercado)
                     self.salvar_ativos()
-                    df.to_csv(os.path.join(historical_data_folder, ativo+'.csv'), index = False)
+                    df.to_csv(os.path.join(folder_historical_data, ativo+'.csv'), index = False)
     
     def atualizar_ativos(self, ativo, descricao, mercado):
         '''Atualiza dicionário de ativos atualmente na memória.'''

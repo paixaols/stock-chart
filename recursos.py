@@ -4,7 +4,9 @@
 arq_ativos = 'ativos.txt'
 
 # Pastas.
-historical_data_folder = 'Dados históricos'
+folder_historical_data = 'Dados históricos'
+folder_index = 'Índice'
+folder_currency = 'Moeda'
 
 # Strings.
 horario_de_fechamento_pregao = '18:00'
